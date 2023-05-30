@@ -121,9 +121,12 @@ impl Extended {
     }
 }
 
-impl From<f64> for Extended {
-    fn from(x: f64) -> Self {
-        let bits = x.to_bits();
+impl<T> From<T> for Extended
+where
+    f64: From<T>
+{
+    fn from(value: T) -> Self {
+        let bits = f64::from(value).to_bits();
         let sign = ((bits >> (63 - 15)) as u32) & 0x8000;
         let exponent = ((bits >> 52) as u32) & MAX_EXPONENT_64;
         let mantissa = bits & ((1 << 52) - 1);
@@ -162,24 +165,6 @@ impl From<f64> for Extended {
                 fraction: (1 << 63) | (mantissa << 11),
             }
         }
-    }
-}
-
-impl From<f32> for Extended {
-    fn from(x: f32) -> Self {
-        f64::from(x).into()
-    }
-}
-
-impl From<i32> for Extended {
-    fn from(x: i32) -> Self {
-        f64::from(x).into()
-    }
-}
-
-impl From<u32> for Extended {
-    fn from(x: u32) -> Self {
-        f64::from(x).into()
     }
 }
 
