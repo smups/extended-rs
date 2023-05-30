@@ -4,11 +4,13 @@
 
 use std::convert::From;
 
+pub type Extended = F80;
+
 /// An 80-bit extended floating-point number.
 /// 
 /// See Apple Numerics Manual, 2nd edition (1988), p. 18 "SANE Data Types".
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Extended {
+pub struct F80 {
     // The sign is stored as the high bit. The low 15 bits contain the exponent,
 	// with a bias of 16383.
     pub sign_exponent: u16,
@@ -20,11 +22,11 @@ pub struct Extended {
 
 const MAX_EXPONENT_64: u32 = (1 << 11) - 1;
 
-impl Extended {
+impl F80 {
     /// Create an extended 80-bit floating-point number from its big endian
     /// representation.
     pub fn from_be_bytes(b: [u8; 10]) -> Self {
-        Extended {
+        F80 {
             sign_exponent: u16::from_be_bytes(b[0..2].try_into().unwrap()),
             fraction: u64::from_be_bytes(b[2..10].try_into().unwrap()),
         }
@@ -33,7 +35,7 @@ impl Extended {
     /// Create an extended 80-bit floating-point number from its little endian
     /// representation.
     pub fn from_le_bytes(b: [u8; 10]) -> Self {
-        Extended {
+        F80 {
             sign_exponent: u16::from_le_bytes(b[8..10].try_into().unwrap()),
             fraction: u64::from_le_bytes(b[0..8].try_into().unwrap()),
         }
@@ -121,7 +123,7 @@ impl Extended {
     }
 }
 
-impl<T> From<T> for Extended
+impl<T> From<T> for F80
 where
     f64: From<T>
 {
@@ -134,7 +136,7 @@ where
             // Zero or subnormal.
             // Number is (-1)^sign * 2^-1022 * 0.mantissa.
             if mantissa == 0 {
-                Extended {
+                F80 {
                     sign_exponent: sign as u16,
                     fraction: 0,
                 }
@@ -144,14 +146,14 @@ where
                 // e = -1022 + 16383 - lzero
                 let nzero = mantissa.leading_zeros();
                 let exponent = 16383 - 1022 + 11 - nzero;
-                Extended {
+                F80 {
                     sign_exponent: (sign | exponent) as u16,
                     fraction: mantissa << nzero,
                 }
             }
         } else if exponent == MAX_EXPONENT_64 {
             // Infinity or NaN.
-            Extended {
+            F80 {
                 sign_exponent: (sign | 0x7fff) as u16,
                 fraction: if mantissa == 0 { 0 } else { u64::MAX },
             }
@@ -160,11 +162,19 @@ where
             // e63 - 1023 = e80 - 16383
             // e80 = e63 + 16383 - 1023
             let exponent = exponent + 16383 - 1023;
-            Extended {
+            F80 {
                 sign_exponent: (sign | exponent) as u16,
                 fraction: (1 << 63) | (mantissa << 11),
             }
         }
+    }
+}
+
+impl std::ops::Add for F80 {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        todo!()
     }
 }
 
@@ -226,7 +236,7 @@ mod test {
         for (n, &(exponent, fraction, expect)) in CASES.iter().enumerate() {
             for sign in 0..2 {
                 let exponent = exponent | ((sign as u16) << 15);
-                let fin = Extended { sign_exponent: exponent, fraction };
+                let fin = F80 { sign_exponent: exponent, fraction };
                 let fout = fin.to_f64();
                 let expect = if sign == 0 { expect } else { -expect };
                 if !equal_f64(fout, expect) {
@@ -272,8 +282,8 @@ mod test {
             for sign in 0..2 {
                 let exponent = exponent | ((sign as u16) << 15);
                 let fin = if sign == 0 { fin } else { -fin };
-                let fout = Extended::from(fin);
-                let expect = Extended { sign_exponent: exponent, fraction };
+                let fout = F80::from(fin);
+                let expect = F80 { sign_exponent: exponent, fraction };
                 if fout != expect {
                     failed = true;
                     eprintln!(
